@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>View Data</title>
+  <link rel="stylesheet" href="style.css">
+  <style>
+    .green { color: green; font-weight: bold; }
+    table { margin: 20px auto; border-collapse: collapse; }
+    td, th { border: 1px solid #ccc; padding: 8px 12px; }
+    .error { color: red; }
+  </style>
+</head>
+<body>
+  <h2>Guests</h2>
+  <table align="center" id="guestTable"><tr><th>Name</th><th>Email</th><th>ID Proof</th><th>Phone</th><th>Room ID</th><th>Actions</th></tr></table>
+
+  <h2>Staff</h2>
+  <table align="center" id="staffTable"><tr><th>Name</th><th>Staff ID</th><th>Email</th><th>Role</th><th>Actions</th></tr></table>
+
+  <h2>Rooms</h2>
+  <table align="center" id="roomTable"><tr><th>Room ID</th><th>Status</th></tr></table>
+
+  <button onclick="location.href='home.html'">Home</button>
+
+  <script>
+    async function loadData() {
+      try {
+        const [guests, staff, rooms] = await Promise.all([
+          fetch('http://localhost:8080/guests').then(res => res.json()),
+          fetch('http://localhost:8080/staff').then(res => res.json()),
+          fetch('http://localhost:8080/rooms').then(res => res.json())
+        ]);
+        renderGuests(guests);
+        renderStaff(staff);
+        renderRooms(rooms, guests);
+      } catch (error) {
+        console.error('Error loading data:', error);
+        alert('Failed to load data. Please check the server.');
+      }
+    }
+
+    function renderGuests(guests) {
+      const guestTable = document.getElementById('guestTable');
+      while (guestTable.rows.length > 1) guestTable.deleteRow(1);
+      guests.forEach(g => {
+        const row = guestTable.insertRow();
+        row.id = `guest-${g.id}`;
+        row.innerHTML = `
+          <td contenteditable="true" data-field="fullname">${g.fullname}</td>
+          <td contenteditable="true" data-field="email">${g.email}</td>
+          <td contenteditable="true" data-field="idproof">${g.idproof}</td>
+          <td contenteditable="true" data-field="phoneno">${g.phoneno}</td>
+          <td contenteditable="true" data-field="roomid">${g.roomid}</td>
+          <td>
+            <button class="edit-btn" data-id="${g.id}">Edit</button>
+            <button class="delete-btn" data-id="${g.id}">Delete</button>
+          </td>`;
+      });
+    }
+
+    function renderStaff(staff) {
+      const staffTable = document.getElementById('staffTable');
+      while (staffTable.rows.length > 1) staffTable.deleteRow(1);
+      staff.forEach(s => {
+        const row = staffTable.insertRow();
+        row.id = `staff-${s.id}`;
+        row.innerHTML = `
+          <td contenteditable="true" data-field="fullname">${s.fullname}</td>
+          <td contenteditable="true" data-field="staffid">${s.staffid}</td>
+          <td contenteditable="true" data-field="email">${s.email}</td>
+          <td contenteditable="true" data-field="role">${s.role}</td>
+          <td>
+            <button class="edit-staff-btn" data-id="${s.id}">Edit</button>
+            <button class="delete-staff-btn" data-id="${s.id}">Delete</button>
+          </td>`;
+      });
+    }
+
+    function renderRooms(rooms, guests) {
+      const roomTable = document.getElementById('roomTable');
+      while (roomTable.rows.length > 1) roomTable.deleteRow(1);
+      rooms.forEach(r => {
+        const guestInRoom = guests.find(g => g.roomid == r.id);
+        const status = guestInRoom ? `Occupied by : ${guestInRoom.fullname} `: 'Available';
+        const row = roomTable.insertRow();
+        row.id =` room-${r.id}`;
+        row.innerHTML =` <td>${r.id}</td><td class="${status.includes('Occupied') ? '' : 'green'}">${status}</td>`;
+      });
+    }
+
+    document.addEventListener('click', async function (e) {
+      const id = e.target.dataset.id;
+      if (e.target.classList.contains('delete-btn')) {
+        await deleteGuest(id);
+      } else if (e.target.classList.contains('edit-btn')) {
+        await updateGuest(id, e.target);
+      } else if (e.target.classList.contains('delete-staff-btn')) {
+        await deleteStaff(id);
+      } else if (e.target.classList.contains('edit-staff-btn')) {
+        await updateStaff(id, e.target);
+      }
+    });
+
+    async function deleteGuest(id) {
+      try {
+        const response = await fetch(`http://localhost:8080/guests/${id}`, {
+          method: 'DELETE'
+        });
+        if (response.ok) {
+          document.getElementById(`guest-${id}`).remove();
+          const guests = await fetch('http://localhost:8080/guests').then(res => res.json());
+          const rooms = await fetch('http://localhost:8080/rooms').then(res => res.json());
+          renderRooms(rooms, guests);
+          alert('Guest deleted successfully!');
+        } else {
+          throw new Error('Failed to delete guest');
+        }
+      } catch (error) {
+        console.error('Error deleting guest:', error);
+        alert('Error deleting guest. Please try again.');
+      }
+    }
+
+    async function updateGuest(id, btn) {
+      const row = btn.closest('tr');
+      const data = {
+        fullname: row.querySelector('[data-field="fullname"]').innerText.trim(),
+        email: row.querySelector('[data-field="email"]').innerText.trim(),
+        idproof: row.querySelector('[data-field="idproof"]').innerText.trim(),
+        phoneno: row.querySelector('[data-field="phoneno"]').innerText.trim(),
+        roomid: parseInt(row.querySelector('[data-field="roomid"]').innerText.trim())
+      };
+
+      if (!data.fullname || !data.email || !data.idproof || !data.phoneno || isNaN(data.roomid)) {
+        alert('Please fill all fields correctly and ensure Room ID is a number.');
+        return;
+      }
+      if (!/^\S+@\S+\.\S+$/.test(data.email)) {
+        alert('Invalid email format.');
+        return;
+      }
+
+      try {
+        const response = await fetch(`http://localhost:8080/guests/${id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data)
+        });
+        if (response.ok) {
+          const guests = await fetch('http://localhost:8080/guests').then(res => res.json());
+          const rooms = await fetch('http://localhost:8080/rooms').then(res => res.json());
+          renderRooms(rooms, guests);
+          alert('Guest updated successfully!');
+        } else {
+          throw new Error('Update failed');
+        }
+      } catch (error) {
+        console.error('Error updating guest:', error);
+        alert('Failed to update guest.');
+      }
+    }
+
+    async function deleteStaff(id) {
+      try {
+        const response = await fetch(`http://localhost:8080/staff/${id}`, {
+          method: 'DELETE'
+        });
+        if (response.ok) {
+          document.getElementById(`staff-${id}`).remove();
+          alert('Staff deleted successfully!');
+        } else {
+          throw new Error('Failed to delete staff');
+        }
+      } catch (error) {
+        console.error('Error deleting staff:', error);
+        alert('Error deleting staff.');
+      }
+    }
+
+    async function updateStaff(id, btn) {
+      const row = btn.closest('tr');
+      const data = {
+        fullname: row.querySelector('[data-field="fullname"]').innerText.trim(),
+        staffid: row.querySelector('[data-field="staffid"]').innerText.trim(),
+        email: row.querySelector('[data-field="email"]').innerText.trim(),
+        role: row.querySelector('[data-field="role"]').innerText.trim()
+      };
+
+      if (!data.fullname || !data.staffid || !data.email || !data.role) {
+        alert('Please fill all fields correctly.');
+        return;
+      }
+      if (!/^\S+@\S+\.\S+$/.test(data.email)) {
+        alert('Invalid email address.');
+        return;
+      }
+
+      try {
+        const response = await fetch(`http://localhost:8080/staff/${id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data)
+        });
+        if (response.ok) {
+          alert('Staff updated successfully!');
+        } else {
+          throw new Error('Update failed');
+        }
+      } catch (error) {
+        console.error('Error updating staff:', error);
+        alert('Failed to update staff.');
+      }
+    }
+
+    loadData();
+  </script>
+</body>
+</html>
