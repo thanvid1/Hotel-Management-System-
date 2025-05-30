@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Staff Entry</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <form align="center" id="staffForm">
+    <h2>Staff Entry</h2>
+    <input type="text" placeholder="Full Name" name="fullname" autocomplete="name">
+    <input type="text" placeholder="Staff ID" name="staffid" autocomplete="id" required>
+    <input type="email" placeholder="Email" name="email" autocomplete="email">
+    <input type="text" placeholder="Role" name="role" autocomplete="role">
+    <button type="submit">Submit</button>
+    <button onclick="location.href='home.html'" type="button">Home</button>
+  </form>
+  <script>
+    document.getElementById('staffForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const data = Object.fromEntries(new FormData(e.target));
+      await fetch('http://localhost:8080/staff', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(data)
+      });
+      alert('Staff Added!');
+      e.target.reset();
+    });
+  </script>
+</body>
+</html>
