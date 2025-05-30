@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Guest Entry</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <form align="center" id="guestForm">
+    <h2>Guest Entry</h2>
+    <input type="text" placeholder="Full Name" name="fullname" required>
+    <input type="email" placeholder="Email" name="email" required>
+    <input type="text" placeholder="ID Proof" name="idproof" required>
+    <input type="text" placeholder="Phone Number" name="phoneno" required>
+    <input type="number" placeholder="Room ID" name="roomid" required>
+    <button type="submit">Submit</button>
+    <button onclick="location.href='home.html'" type="button">Home</button>
+  </form>
+  <script>
+    document.getElementById('guestForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const data = Object.fromEntries(new FormData(e.target));
+      const res = await fetch('http://localhost:8080/guests', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(data)
+      }).then(r => r.json());
+
+      await fetch(`http://localhost:8080/rooms/${data.roomid}`, {
+        method: 'PATCH',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(`{status: Occupied by ${res.id}}`)
+      });
+
+      alert('Guest Added!');
+      e.target.reset();
+    });
+  </script>
+</body>
+</html>
